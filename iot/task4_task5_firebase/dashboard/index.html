@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Environment Monitor</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f7fb;
+      color: #172033;
+    }
+    button, input { font: inherit; }
+    .hidden { display: none !important; }
+
+    /* Login */
+    #loginScreen {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: linear-gradient(135deg, #eef4ff, #f8fafc);
+    }
+    .login-card {
+      width: min(420px, 100%);
+      background: white;
+      padding: 40px;
+      border-radius: 22px;
+      box-shadow: 0 18px 50px rgba(20, 35, 60, .12);
+      text-align: center;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 18px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      font-size: 30px;
+      background: #e8f0ff;
+    }
+    .login-card h1 { margin: 0 0 8px; font-size: 27px; }
+    .login-card p { margin: 0 0 28px; color: #68738a; }
+    .google-btn {
+      width: 100%;
+      border: 1px solid #d7dce5;
+      background: white;
+      padding: 13px 18px;
+      border-radius: 11px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .google-btn:hover { background: #f8fafc; }
+    #loginError { color: #c62828; margin-top: 14px; font-size: 14px; }
+
+    /* Dashboard */
+    .topbar {
+      height: 72px;
+      background: white;
+      border-bottom: 1px solid #e5e9f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .brand { font-weight: 800; font-size: 20px; }
+    .user-area { display: flex; align-items: center; gap: 14px; }
+    .user-email { color: #68738a; font-size: 14px; }
+    .logout {
+      border: 0;
+      background: #172033;
+      color: white;
+      padding: 9px 14px;
+      border-radius: 9px;
+      cursor: pointer;
+    }
+
+    main {
+      max-width: 1250px;
+      margin: 0 auto;
+      padding: 30px;
+    }
+    .page-title { margin-bottom: 24px; }
+    .page-title h2 { margin: 0 0 5px; font-size: 28px; }
+    .page-title p { margin: 0; color: #68738a; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .card {
+      background: white;
+      border: 1px solid #e7ebf1;
+      border-radius: 17px;
+      padding: 22px;
+      box-shadow: 0 5px 18px rgba(20, 35, 60, .04);
+    }
+    .sensor-label { color: #68738a; font-size: 14px; margin-bottom: 10px; }
+    .sensor-value { font-size: 31px; font-weight: 800; }
+    .sensor-unit { font-size: 16px; font-weight: 500; color: #68738a; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .section-title { font-weight: 750; margin-bottom: 18px; font-size: 17px; }
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .status {
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .on { background: #e5f7ec; color: #168344; }
+    .off { background: #f1f3f6; color: #697386; }
+
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .action {
+      border: 0;
+      padding: 11px 17px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      background: #172033;
+      color: white;
+    }
+    .action.secondary {
+      background: #eef1f6;
+      color: #172033;
+    }
+    .action.active {
+      outline: 3px solid #d6e2ff;
+    }
+
+    .threshold {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .threshold input {
+      width: 150px;
+      padding: 10px 12px;
+      border: 1px solid #d7dce5;
+      border-radius: 9px;
+    }
+
+    .chart-card { margin-bottom: 18px; }
+    .chart-wrap { height: 340px; }
+
+    .table-card { overflow: hidden; }
+    .table-scroll { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+    th, td {
+      padding: 13px 12px;
+      text-align: left;
+      border-bottom: 1px solid #edf0f4;
+      font-size: 14px;
+    }
+    th { color: #68738a; font-weight: 700; background: #fafbfc; }
+    .download {
+      margin-top: 18px;
+    }
+    .empty { color: #68738a; padding: 20px 0; }
+
+    @media (max-width: 850px) {
+      .cards, .controls { grid-template-columns: 1fr; }
+      .topbar { padding: 0 18px; }
+      .user-email { display: none; }
+      main { padding: 20px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- LOGIN -->
+  <section id="loginScreen">
+    <div class="login-card">
+      <div class="logo">🌱</div>
+      <h1>Smart Environment</h1>
+      <p>Monitor and control your smart room</p>
+      <button id="googleLogin" class="google-btn">Continue with Google</button>
+      <div id="loginError"></div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="hidden">
+    <header class="topbar">
+      <div class="brand">Smart Environment Monitor</div>
+      <div class="user-area">
+        <span id="userEmail" class="user-email"></span>
+        <button id="logoutBtn" class="logout">Logout</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="page-title">
+        <h2>Dashboard</h2>
+        <p>Live environmental conditions and appliance control</p>
+      </div>
+
+      <section class="cards">
+        <div class="card">
+          <div class="sensor-label">Temperature</div>
+          <div class="sensor-value"><span id="temperature">--</span> <span class="sensor-unit">°C</span></div>
+        </div>
+        <div class="card">
+          <div class="sensor-label">Humidity</div>
+          <div class="sensor-value"><span id="humidity">--</span> <span class="sensor-unit">%</span></div>
+        </div>
+        <div class="card">
+          <div class="sensor-label">Ambient Light (LDR)</div>
+          <div class="sensor-value"><span id="ldr">--</span></div>
+        </div>
+      </section>
+
+      <section class="controls">
+        <div class="card">
+          <div class="section-title">Bulb Control</div>
+          <div class="status-row">
+            <span>Current state</span>
+            <span id="bulbStatus" class="status off">OFF</span>
+          </div>
+          <div class="btn-row">
+            <button id="bulbOn" class="action">Turn ON</button>
+            <button id="bulbOff" class="action secondary">Turn OFF</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Operating Mode</div>
+          <div class="status-row">
+            <span>Current mode</span>
+            <span id="modeStatus" class="status off">AUTO</span>
+          </div>
+          <div class="btn-row">
+            <button id="manualBtn" class="action secondary">Manual</button>
+            <button id="autoBtn" class="action">Automatic</button>
+          </div>
+          <div style="margin-top:18px">
+            <div class="sensor-label">LDR Threshold</div>
+            <div class="threshold">
+              <input id="thresholdInput" type="number" value="1500" />
+              <button id="saveThreshold" class="action">Save</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card chart-card">
+        <div class="section-title">Environmental History</div>
+        <div class="chart-wrap">
+          <canvas id="environmentChart"></canvas>
+        </div>
+      </section>
+
+      <section class="card table-card">
+        <div class="section-title">Historical Data</div>
+        <div id="tableEmpty" class="empty hidden">No historical records found.</div>
+        <div class="table-scroll">
+          <table id="historyTable">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Temperature</th>
+                <th>Humidity</th>
+                <th>LDR</th>
+                <th>Bulb</th>
+                <th>Mode</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+        <button id="downloadCsv" class="action download">Download CSV</button>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+    import {
+      getDatabase,
+      ref,
+      onValue,
+      set
+    } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+
+    // ==========================================================
+    // YOUR FIREBASE CONFIG
+    // ==========================================================
+    const firebaseConfig = {
+     apiKey: "YOUR_FIREBASE_API_KEY",
+     authDomain: "YOUR_PROJECT.firebaseapp.com",
+     databaseURL: "https://YOUR_PROJECT-default-rtdb.firebasedatabase.app",
+     projectId: "YOUR_PROJECT",
+     storageBucket: "YOUR_PROJECT.firebasestorage.app",
+     messagingSenderId: "YOUR_SENDER_ID",
+     appId: "YOUR_APP_ID",
+     measurementId: "YOUR_MEASUREMENT_ID"
+   };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+    const provider = new GoogleAuthProvider();
+
+    const $ = (id) => document.getElementById(id);
+
+    let currentData = {};
+    let controlData = {};
+    let historyData = {};
+    let chart;
+
+    // ==========================================================
+    // AUTHENTICATION
+    // ==========================================================
+    $("googleLogin").addEventListener("click", async () => {
+      $("loginError").textContent = "";
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        console.error(error);
+        $("loginError").textContent = error.message;
+      }
+    });
+
+    $("logoutBtn").addEventListener("click", async () => {
+      await signOut(auth);
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        $("loginScreen").classList.add("hidden");
+        $("dashboard").classList.remove("hidden");
+        $("userEmail").textContent = user.email || user.displayName || "";
+        startDatabaseListeners();
+      } else {
+        $("dashboard").classList.add("hidden");
+        $("loginScreen").classList.remove("hidden");
+      }
+    });
+
+    // ==========================================================
+    // FIREBASE DATA LISTENERS
+    // ==========================================================
+    function startDatabaseListeners() {
+      onValue(ref(db, "current"), (snapshot) => {
+        currentData = snapshot.val() || {};
+        updateCurrentUI();
+      });
+
+      onValue(ref(db, "control"), (snapshot) => {
+        controlData = snapshot.val() || {};
+        updateControlUI();
+      });
+
+      onValue(ref(db, "history"), (snapshot) => {
+        historyData = snapshot.val() || {};
+        updateHistoryUI();
+      });
+    }
+
+    function updateCurrentUI() {
+      $("temperature").textContent =
+        currentData.temperature ?? "--";
+      $("humidity").textContent =
+        currentData.humidity ?? "--";
+      $("ldr").textContent =
+       currentData.ldr === 0
+        ? "DARK"
+        : currentData.ldr === 1
+          ? "BRIGHT"
+           : "--";
+      updateBulbStatus(currentData.bulbState);
+    }
+
+    function updateControlUI() {
+      updateBulbStatus(controlData.bulbState);
+      const mode = controlData.mode || "AUTO";
+      $("modeStatus").textContent = mode;
+      $("modeStatus").className = "status " + (mode === "AUTO" ? "on" : "off");
+      $("thresholdInput").value = controlData.ldrThreshold ?? 1500;
+
+      $("manualBtn").classList.toggle("active", mode === "MANUAL");
+      $("autoBtn").classList.toggle("active", mode === "AUTO");
+    }
+
+    function updateBulbStatus(state) {
+      const on = state === true;
+      $("bulbStatus").textContent = on ? "ON" : "OFF";
+      $("bulbStatus").className = "status " + (on ? "on" : "off");
+    }
+
+    // ==========================================================
+    // CONTROL BUTTONS
+    // ==========================================================
+    $("bulbOn").addEventListener("click", () => {
+      set(ref(db, "control/bulbState"), true);
+    });
+
+    $("bulbOff").addEventListener("click", () => {
+      set(ref(db, "control/bulbState"), false);
+    });
+
+    $("manualBtn").addEventListener("click", () => {
+      set(ref(db, "control/mode"), "MANUAL");
+    });
+
+    $("autoBtn").addEventListener("click", () => {
+      set(ref(db, "control/mode"), "AUTO");
+    });
+
+    $("saveThreshold").addEventListener("click", () => {
+      const value = Number($("thresholdInput").value);
+      if (!Number.isFinite(value)) return;
+      set(ref(db, "control/ldrThreshold"), value);
+    });
+
+    // ==========================================================
+    // HISTORY / TABLE / CHART
+    // ==========================================================
+    function getHistoryRows() {
+      return Object.entries(historyData)
+        .map(([id, record]) => ({ id, ...record }))
+        .sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
+    }
+
+    function formatTimestamp(timestamp) {
+      const d = new Date(Number(timestamp));
+      if (Number.isNaN(d.getTime())) return String(timestamp ?? "");
+      return d.toLocaleString();
+    }
+
+    function updateHistoryUI() {
+      const rows = getHistoryRows();
+      $("historyBody").innerHTML = "";
+
+      if (!rows.length) {
+        $("tableEmpty").classList.remove("hidden");
+      } else {
+        $("tableEmpty").classList.add("hidden");
+        [...rows].reverse().forEach((row) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${escapeHtml(formatTimestamp(row.timestamp))}</td>
+            <td>${escapeHtml(row.temperature ?? "")} °C</td>
+            <td>${escapeHtml(row.humidity ?? "")} %</td>
+            <td>${escapeHtml(row.ldr ?? "")}</td>
+            <td>${row.bulbState === true ? "ON" : "OFF"}</td>
+            <td>${escapeHtml(row.mode ?? "")}</td>
+          `;
+          $("historyBody").appendChild(tr);
+        });
+      }
+
+      updateChart(rows);
+    }
+
+    function updateChart(rows) {
+      const labels = rows.map(r => formatTimestamp(r.timestamp));
+      const temperatures = rows.map(r => Number(r.temperature));
+      const humidity = rows.map(r => Number(r.humidity));
+      const ldr = rows.map(r => Number(r.ldr));
+
+      if (chart) chart.destroy();
+
+      chart = new Chart($("environmentChart"), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Temperature (°C)",
+              data: temperatures,
+              tension: 0.25,
+              yAxisID: "y"
+            },
+            {
+              label: "Humidity (%)",
+              data: humidity,
+              tension: 0.25,
+              yAxisID: "y"
+            },
+            {
+              label: "LDR",
+              data: ldr,
+              tension: 0.25,
+              yAxisID: "y1"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          scales: {
+            y: {
+              beginAtZero: false,
+              position: "left"
+            },
+            y1: {
+              beginAtZero: false,
+              position: "right",
+              grid: { drawOnChartArea: false }
+            }
+          }
+        }
+      });
+    }
+
+    // ==========================================================
+    // CSV EXPORT
+    // ==========================================================
+    $("downloadCsv").addEventListener("click", () => {
+      const rows = getHistoryRows();
+
+      const header = [
+        "Timestamp",
+        "Temperature",
+        "Humidity",
+        "LDR",
+        "BulbState",
+        "Mode"
+      ];
+
+      const csvRows = [
+        header,
+        ...rows.map(r => [
+          formatTimestamp(r.timestamp),
+          r.temperature ?? "",
+          r.humidity ?? "",
+          r.ldr ?? "",
+          r.bulbState === true ? "ON" : "OFF",
+          r.mode ?? ""
+        ])
+      ];
+
+      const csv = csvRows.map(row =>
+        row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(",")
+      ).join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "smart_environment_history.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+  </script>
+</body>
+</html>
